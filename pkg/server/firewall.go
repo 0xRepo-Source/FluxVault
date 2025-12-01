@@ -10,15 +10,13 @@ import (
 
 // FirewallManager handles automatic firewall rule creation
 type FirewallManager struct {
-	serverPort    int
-	discoveryPort int
+	serverPort int
 }
 
 // NewFirewallManager creates a new firewall manager
-func NewFirewallManager(serverPort, discoveryPort int) *FirewallManager {
+func NewFirewallManager(serverPort int) *FirewallManager {
 	return &FirewallManager{
-		serverPort:    serverPort,
-		discoveryPort: discoveryPort,
+		serverPort: serverPort,
 	}
 }
 
@@ -33,8 +31,7 @@ func (fm *FirewallManager) EnsureFirewallRules() {
 	if !fm.isAdmin() {
 		fmt.Println("💡 For automatic firewall configuration, restart as Administrator")
 		fmt.Println("   OR manually configure Windows Firewall:")
-		fmt.Printf("   netsh advfirewall firewall add rule name=\"GoFlux Server\" dir=in action=allow protocol=TCP localport=%d\n", fm.serverPort)
-		fmt.Printf("   netsh advfirewall firewall add rule name=\"GoFlux Discovery\" dir=in action=allow protocol=UDP localport=%d\n", fm.discoveryPort)
+		fmt.Printf("   netsh advfirewall firewall add rule name=\"FluxVault Server\" dir=in action=allow protocol=TCP localport=%d\n", fm.serverPort)
 		fmt.Println()
 		return
 	}
@@ -45,14 +42,8 @@ func (fm *FirewallManager) EnsureFirewallRules() {
 	success := true
 
 	// Create TCP rule for server
-	if err := fm.createFirewallRule("GoFlux Server", "TCP", fm.serverPort); err != nil {
+	if err := fm.createFirewallRule("FluxVault Server", "TCP", fm.serverPort); err != nil {
 		fmt.Printf("⚠️  Failed to create server firewall rule: %v\n", err)
-		success = false
-	}
-
-	// Create UDP rule for discovery
-	if err := fm.createFirewallRule("GoFlux Discovery", "UDP", fm.discoveryPort); err != nil {
-		fmt.Printf("⚠️  Failed to create discovery firewall rule: %v\n", err)
 		success = false
 	}
 
@@ -111,8 +102,7 @@ func (fm *FirewallManager) RemoveFirewallRules() {
 	}
 
 	// Remove rules (best effort, don't report errors)
-	exec.Command("netsh", "advfirewall", "firewall", "delete", "rule", "name=GoFlux Server").Run()
-	exec.Command("netsh", "advfirewall", "firewall", "delete", "rule", "name=GoFlux Discovery").Run()
+	exec.Command("netsh", "advfirewall", "firewall", "delete", "rule", "name=FluxVault Server").Run()
 }
 
 // parsePortFromAddress extracts port number from address string

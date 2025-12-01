@@ -1,6 +1,6 @@
 package auth
 
-// Package auth contains authentication helpers and interfaces for goflux.
+// Package auth contains authentication helpers and interfaces for FluxVault.
 
 // Credential represents an authentication credential (placeholder).
 type Credential struct {

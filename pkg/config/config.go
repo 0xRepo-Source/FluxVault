@@ -20,7 +20,7 @@ type ServerConfig struct {
 
 // ClientConfig holds client configuration
 type ClientConfig struct {
-	ServerURL string `json:"server_url"` // Server URL (e.g., "http://95.145.216.175")
+	ServerURL string `json:"server_url"` // Server URL (e.g., "http://<external ip and port>")
 	ChunkSize int    `json:"chunk_size"` // Chunk size in bytes
 	Token     string `json:"token"`      // Authentication token (optional)
 }
@@ -73,7 +73,7 @@ func DefaultServerConfig() ServerConfig {
 	return ServerConfig{
 		Address:     fmt.Sprintf("%s:8080", internalIP),
 		StorageDir:  "./data",
-		MetaDir:     "./.goflux-meta",
+		MetaDir:     "./.FluxVault-meta",
 		TokensFile:  "",
 		TLSCertFile: "",
 		TLSKeyFile:  "",

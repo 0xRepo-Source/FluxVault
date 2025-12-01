@@ -50,7 +50,7 @@ func getInternalIP() string {
 }
 
 func main() {
-	configFile := flag.String("config", "goflux.json", "path to configuration file")
+	configFile := flag.String("config", "FluxVault.json", "path to configuration file")
 	port := flag.String("port", "", "server port (overrides config)")
 	version := flag.Bool("version", false, "print version")
 	flag.Parse()
@@ -114,11 +114,6 @@ func main() {
 	serverConfig.Server.TokensFile = cfg.Server.TokensFile
 	serverConfig.Server.MaxFileSize = 1024 * 1024 * 1024 // 1GB default
 	srv.SetConfig(serverConfig)
-
-	// Enable discovery service
-	if err := srv.EnableDiscovery(cfg.Server.Address, "0.1.0-lite"); err != nil {
-		fmt.Printf("Warning: Failed to enable discovery: %v\n", err)
-	}
 
 	// Enable automatic firewall configuration
 	srv.EnableFirewall(cfg.Server.Address)

@@ -15,14 +15,20 @@ import (
 )
 
 func main() {
-	defaultConfigPath := filepath.Join(executableDir(), "goflux.json")
+	defaultConfigPath := filepath.Join(executableDir(), "FluxVault.json")
 
-	configFile := flag.String("config", defaultConfigPath, "path to configuration file")
+	configServer := flag.String("config", "", "configure server address (e.g., 192.168.1.197:8080)")
 	version := flag.Bool("version", false, "print version")
 	flag.Parse()
 
 	if *version {
 		fmt.Println("FluxVault version: 0.1.0-lite")
+		return
+	}
+
+	// If -config flag is provided, configure the server and exit
+	if *configServer != "" {
+		doConfigureServer(*configServer, defaultConfigPath)
 		return
 	}
 
@@ -32,8 +38,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Load configuration
-	cfg, err := loadConfig(*configFile)
+	// Load configuration from file (or use defaults)
+	cfg, err := loadConfig(defaultConfigPath)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
@@ -42,7 +48,7 @@ func main() {
 	client := transport.NewHTTPClient(cfg.Client.ServerURL)
 
 	// Set authentication token (environment variable takes precedence over config file)
-	token := os.Getenv("GOFLUX_TOKEN_LITE")
+	token := os.Getenv("FluxVault_TOKEN_LITE")
 	if token == "" {
 		token = cfg.Client.Token
 	}
@@ -54,10 +60,6 @@ func main() {
 	// Execute command
 	command := args[0]
 	switch command {
-	case "discover":
-		doDiscover()
-	case "config":
-		doConfig(args[1:])
 	case "get":
 		doGet(client, args[1:])
 	case "put":
@@ -76,18 +78,16 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Printf(`GoFlux Lite - Simple file transfer client
+	fmt.Printf(`FluxVault Lite - Simple file transfer client
 
 USAGE:
   FluxVault [options] <command> [args...]
 
 OPTIONS:
-  -config string    Configuration file (default "goflux.json")
+  -config <server>  Configure server address (e.g., 192.168.1.197:8080)
   -version          Show version
 
 COMMANDS:
-  discover              Discover GoFlux servers on local network
-  config <server>       Configure client for discovered server
   get <remote> <local>  Download a file
   put <local> <remote>  Upload a file
   ls [path]            List files/directories
@@ -95,8 +95,7 @@ COMMANDS:
   mkdir <path>         Create directory
 
 EXAMPLES:
-  FluxVault discover
-  FluxVault config 192.168.1.100:8080
+  FluxVault -config 192.168.1.197:8080
   FluxVault put document.pdf files/document.pdf
   FluxVault get files/document.pdf downloaded.pdf
   FluxVault ls files/
@@ -119,7 +118,7 @@ func loadConfig(configFile string) (*config.Config, error) {
 	}
 
 	configPaths = append(configPaths,
-		filepath.Join(execDir, "goflux.json"),
+		filepath.Join(execDir, "FluxVault.json"),
 		filepath.Join(execDir, "config.json"),
 		"config.json",
 	)
@@ -146,6 +145,42 @@ func loadConfig(configFile string) (*config.Config, error) {
 			ChunkSize: 1048576,
 		},
 	}, nil
+}
+
+func doConfigureServer(serverAddr, configPath string) {
+	fmt.Printf("Configuring client for server: %s\n", serverAddr)
+
+	// Ensure http:// prefix
+	serverURL := serverAddr
+	if !strings.HasPrefix(serverAddr, "http://") && !strings.HasPrefix(serverAddr, "https://") {
+		serverURL = "http://" + serverAddr
+	}
+
+	// Create FluxVault.json configuration
+	clientConfig := map[string]interface{}{
+		"client": map[string]interface{}{
+			"server_url": serverURL,
+			"chunk_size": 1048576,
+			"token":      "", // User must set this manually if auth is required
+		},
+	}
+
+	// Write configuration to file
+	configJSON, err := json.MarshalIndent(clientConfig, "", "  ")
+	if err != nil {
+		log.Fatalf("Failed to create config: %v", err)
+	}
+
+	if err := os.WriteFile(configPath, configJSON, 0644); err != nil {
+		log.Fatalf("Failed to write config file: %v", err)
+	}
+
+	fmt.Printf("✓ Configuration saved to %s\n", configPath)
+	fmt.Printf("✓ Server URL: %s\n", serverURL)
+	fmt.Println()
+	fmt.Println("You can now use FluxVault commands without specifying the server.")
+	fmt.Println("If authentication is required, set the token in FluxVault.json or use")
+	fmt.Println("the FluxVault_TOKEN_LITE environment variable.")
 }
 
 func doGet(client *transport.HTTPClient, args []string) {
@@ -320,65 +355,44 @@ func doList(client *transport.HTTPClient, args []string) {
 	}
 }
 
-func doDiscover() {
-	fmt.Println("Discovering GoFlux servers on local network...")
-
-	discovery := transport.NewDiscoveryClient()
-	servers, err := discovery.DiscoverServers()
-	if err != nil {
-		log.Fatalf("Discovery failed: %v", err)
-	}
-
-	fmt.Print(discovery.FormatServerList(servers))
-}
-
-func doConfig(args []string) {
+func doDelete(client *transport.HTTPClient, args []string) {
 	if len(args) < 1 {
-		fmt.Println("Usage: config <server_address>")
-		fmt.Println("Example: config 192.168.1.100:8080")
+		fmt.Println("Usage: rm <path>")
 		os.Exit(1)
 	}
 
-	serverAddr := args[0]
-	fmt.Printf("Configuring client for server: %s\n", serverAddr)
+	path := strings.TrimSpace(strings.Join(args, " "))
+	if path == "" {
+		fmt.Println("Usage: rm <path>")
+		os.Exit(1)
+	}
+	fmt.Printf("Deleting %s...\n", path)
 
-	discovery := transport.NewDiscoveryClient()
-	config, err := discovery.GetServerConfig(serverAddr)
-	if err != nil {
-		log.Fatalf("Failed to get server config: %v", err)
+	if err := client.Delete(path); err != nil {
+		log.Fatalf("Delete failed: %v", err)
 	}
 
-	// Create goflux.json configuration
-	clientConfig := map[string]interface{}{
-		"client": map[string]interface{}{
-			"server_url": fmt.Sprintf("http://%s", serverAddr),
-			"chunk_size": 1048576,
-			"token":      "", // User must set this manually if auth is required
-		},
+	fmt.Printf("✓ Successfully deleted: %s\n", path)
+}
+
+func doMkdir(client *transport.HTTPClient, args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: mkdir <path>")
+		os.Exit(1)
 	}
 
-	// Write configuration to file
-	configJSON, err := json.MarshalIndent(clientConfig, "", "  ")
-	if err != nil {
-		log.Fatalf("Failed to create config: %v", err)
+	path := strings.TrimSpace(strings.Join(args, " "))
+	if path == "" {
+		fmt.Println("Usage: mkdir <path>")
+		os.Exit(1)
+	}
+	fmt.Printf("Creating directory %s...\n", path)
+
+	if err := client.Mkdir(path); err != nil {
+		log.Fatalf("Mkdir failed: %v", err)
 	}
 
-	configPath := filepath.Join(executableDir(), "goflux.json")
-	if err := os.WriteFile(configPath, configJSON, 0644); err != nil {
-		log.Fatalf("Failed to write config file: %v", err)
-	}
-
-	fmt.Printf("✓ Configuration saved to %s\n", configPath)
-
-	// Show auth info if required
-	if serverConfig, ok := config["server"].(map[string]interface{}); ok {
-		if authEnabled, ok := serverConfig["auth_enabled"].(bool); ok && authEnabled {
-			fmt.Println()
-			fmt.Println("⚠️  This server requires authentication.")
-			fmt.Println("   Set GOFLUX_TOKEN_LITE environment variable or edit goflux.json")
-			fmt.Println("   Contact the server administrator for a token.")
-		}
-	}
+	fmt.Printf("✓ Successfully created directory: %s\n", path)
 }
 
 func executableDir() string {
@@ -432,46 +446,6 @@ func formatSpeed(bytesPerSecond float64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB/s", bytesPerSecond/div, "KMGTPE"[exp])
-}
-
-func doDelete(client *transport.HTTPClient, args []string) {
-	if len(args) < 1 {
-		fmt.Println("Usage: rm <path>")
-		os.Exit(1)
-	}
-
-	path := strings.TrimSpace(strings.Join(args, " "))
-	if path == "" {
-		fmt.Println("Usage: rm <path>")
-		os.Exit(1)
-	}
-	fmt.Printf("Deleting %s...\n", path)
-
-	if err := client.Delete(path); err != nil {
-		log.Fatalf("Delete failed: %v", err)
-	}
-
-	fmt.Printf("✓ Successfully deleted: %s\n", path)
-}
-
-func doMkdir(client *transport.HTTPClient, args []string) {
-	if len(args) < 1 {
-		fmt.Println("Usage: mkdir <path>")
-		os.Exit(1)
-	}
-
-	path := strings.TrimSpace(strings.Join(args, " "))
-	if path == "" {
-		fmt.Println("Usage: mkdir <path>")
-		os.Exit(1)
-	}
-	fmt.Printf("Creating directory %s...\n", path)
-
-	if err := client.Mkdir(path); err != nil {
-		log.Fatalf("Mkdir failed: %v", err)
-	}
-
-	fmt.Printf("✓ Successfully created directory: %s\n", path)
 }
 
 func resolvePutPaths(args []string) (string, string) {

@@ -4,7 +4,7 @@ Write-Host "Building FluxVault components..." -ForegroundColor Gray
 
 # Build FluxVault Server
 Write-Host "Building FluxVault Server..." -ForegroundColor Yellow
-go build -o Bin/FluxVaultServer.exe ./cmd/server/main.go
+go build -o Bin/FVS.exe ./cmd/server/main.go
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Failed to build FluxVault Server." -ForegroundColor Red
     exit $LASTEXITCODE
@@ -12,7 +12,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # Build FluxVault Client
 Write-Host "Building FluxVault Client..." -ForegroundColor Yellow
-go build -o Bin/FluxVaultClient.exe ./cmd/client/main.go
+go build -o Bin/FVC.exe ./cmd/client/main.go
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Failed to build FluxVault Client." -ForegroundColor Red
     exit $LASTEXITCODE
@@ -20,10 +20,12 @@ if ($LASTEXITCODE -ne 0) {
 
 # Build FluxVault Admin Tool
 Write-Host "Building FluxVault Admin Tool..." -ForegroundColor Yellow
-go build -o Bin/FluxVaultAdmin.exe ./cmd/admin/main.go
+go build -o Bin/FVA.exe ./cmd/admin/main.go
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Failed to build FluxVault Admin Tool." -ForegroundColor Red
     exit $LASTEXITCODE
 }
 
 Write-Host "Build completed successfully!" -ForegroundColor Green
+
+# End of Build.ps1
